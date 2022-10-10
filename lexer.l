@@ -13,29 +13,31 @@
 %}
 
 %option stack yylineno caseless
-
-%x doctype_version_validator
-
+%x TAG_VALIDATOR
+%x DOCTYPE_VERSION_VALIDATOR
+%x HTML_ATTRIBUTE_EXPRESSION
 
 /*remove spaces and line breaks*/
-skip [\t]*[\r\n]*[\n]*
-space [\s]*
+line_break [\r\n]*[\n]*
+space [\s]*[\t]*
 
 /*Comment handler*/
-COMMENT_start			\<\!\-\-
-COMMENT_end				\-\-\>
+comment_start			\<\!\-\-
+comment_end				\-\-\>
 
 /*Doctype handler*/
-DOCTYPE_tag 			\!doctype
+doctype 			\!doctype
+public				public
 
 /*other special tag*/
-HTML_tag 				html
-HEAD_tag 				head
-BODY_tag 				body
-TITLE_tag 				title
+html_tag 				html
+head_tag 				head
+body_tag 				body
+title_tag 				title
 
-/*Attribute value may*/
-ATTRIBUTE_value			([\"].*[\"])|([\'].*[\'])|[\d]+
+/*Attribute*/
+attribute_name			[a-z]+([\-][a-z])*
+attribute_value			([\"].*[\"])|([\'].*[\'])|[\d]+
 
 /*for tags and attributes*/
 name					[a-z]+
@@ -43,37 +45,84 @@ custom_name 			([a-z]+[\-])+[a-z\d]*
 
 /*non HTML5 constuctions*/
 /*such as XML, CDATA*/
-XML_tag 				(xml)|(\?xml)
-CDATA_definition		(\!\[cdata\[)
+xml_tag 				(xml)|(\?xml)
+cdata_definition		(\!\[cdata\[)
+%%
+{doctype} 
+
+
+
+[\<] {
+	/*what tag is it?..*/
+	//printf("%s", yytext);
+	BEGIN(TAG_VALIDATOR);
+}
+
+<TAG_VALIDATOR>{
+	{doctype} {
+		//printf("%s", yytext);
+		BEGIN(DOCTYPE_VERSION_VALIDATOR);
+	}
+
+	{html_tag} {
+		//printf("%s", yytext);
+		BEGIN(HTML_ATTRIBUTE_EXPRESSION);
+	}
+
+	{head_tag} {
+		printf("%s", yytext);
+		
+	}
+
+	. ;
+}
+
+<DOCTYPE_VERSION_VALIDATOR>{
+	({space}|{line_break})+{html_tag}[\>] {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return DOCTYPE_FULL;
+	}
+
+	({space}|{line_break})+{html_tag}({space}|{line_break})+{public} {
+		//printf("%s", yytext);
+		printf("WARNING: Obsolete DOCTYPE! Use <!DOCTYPE html> instead.");
+		BEGIN(0);
+		return DOCTYPE_FULL;
+	}
+
+	. ;
+}
+
+<HTML_ATTRIBUTE_EXPRESSION>{
+	({space}|{line_break})*[\>] {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return OPEN_HTML_TAG;
+	}
+	
+	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+		//printf("%s", yytext);
+		BEGIN(HTML_ATTRIBUTE_EXPRESSION);
+		/*need to validate*/
+	}
+
+	. ;
+}
+
+{line_break} {
+	line++;
+} 
+
+. ;
 
 %%
 
-\<{DOCTYPE_tag}{space}*{skip}*
-{
-	BEGIN(doctype_version_validator);
-}
-
-<doctype_version_validator>
-{
-	{HTML_tag}
-	{
-		BEGIN(0);
-		return DOCTYPE_TAG
-	}
-	{HTML_tag}{space}*public
-	{
-		printf("ERROR: Obsolete doctype. Expected <!DOCTYPE html>.", line);
-		exit(-1);
-	}
-}
-
-%% 
-  
 int yywrap(){}
 
 void yyerror(char *msg)
 {
-    printf("%s \n", msg); 
+    printf("%s . in line %d\n", msg, line);
 }
   
 int main(int argc, char*argv[])
@@ -88,7 +137,7 @@ int main(int argc, char*argv[])
 
 	for (int i = 1; i < argc; i++) 
 	{
-		printf("argv[%d] - %s", i, argv[i]);
+		printf("argv[%d] - %s\n", i, argv[i]);
 	}
 
     if ((err = fopen_s(&yyin, argv[1], "r")) != 0) {

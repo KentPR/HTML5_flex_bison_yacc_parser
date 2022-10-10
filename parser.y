@@ -4,68 +4,46 @@
 	extern int line;
 %}
 
-%token OPEN_OPENER CLOSE_OPENER CLOSER
-
 /*the main tags that should be in the HTML file*/
-%token DOCTYPE_TAG HTML_TAG HEAD_TAG BODY_TAG TITLE_TAG 
-//%token COMMENT_TAG
-%token COMMON_TAG //COMMON_UNARY_TAG
-%token ATTRIBUTE_EQUAL VALUE
+%token DOCTYPE_FULL 
+%token OPEN_HTML_TAG CLOSE_HTML_TAG
+%token OPEN_HEAD_TAG CLOSE_HEAD_TAG
+%token OPEN_BODY_TAG CLOSE_BODY_TAG
+%token OPEN_TITLE_TAG CLOSE_TITLE_TAG
+
+%token OPEN_COMMON_TAG CLOSE_COMMON_TAG UNARY_TAG
 
 %%
 
 /*hardcoding (doctype,html,head,title,body) 
 as they are once-used tag*/
-valid_HTML_doc: doctype_open doctype_content doctype_close|
-error { yyerrok; printf("in line %d.\n", line); exit(-1);}
+valid_HTML_doc: DOCTYPE_FULL OPEN_HTML_TAG html_content CLOSE_HTML_TAG
+			|error { yyerrok; printf("in line %d.\n", line); exit(-1);}
 
-doctype_open: OPEN_OPENER DOCTYPE_TAG CLOSER
+/*HTML document can be without a <body>
+but can't be without a <head>
+*/
+html_content: OPEN_HEAD_TAG head_content CLOSE_HEAD_TAG
+			| OPEN_HEAD_TAG head_content CLOSE_HEAD_TAG OPEN_BODY_TAG body_content CLOSE_BODY_TAG
 
-doctype_content: html_opener html_content html_closer
+/*exactly one <title> is required in HTML document!*/
+head_content: other_head_content OPEN_TITLE_TAG CLOSE_TITLE_TAG other_head_content
 
-html_opener: OPEN_OPENER HTML_TAG CLOSER |
-/*<hTml lang="ru" translate="no" class="adaptive" >*/
-OPEN_OPENER HTML_TAG attributes CLOSER
 
-attributes: attributes ATTRIBUTE_EQUAL VALUE 
-			| ATTRIBUTE_EQUAL VALUE
+/*other tags  allowed in <head> such as:
+<style>
+<base>
+<link>
+<meta>
+<script>
+<noscript>
+*/
+other_head_content: /*nothing or <unary>+*/
+				| other_head_content UNARY_TAG
 
-html_content: head_element body_element
-		| head_element
 
-head_element: head_opener head_content head_close
-
-head_opener: OPEN_OPENER HEAD_TAG CLOSER
-
-head_content: title_opener title_closer
-
-title_opener: OPEN_OPENER TITLE_TAG CLOSER
-
-title_closer: CLOSE_OPENER TITLE_TAG CLOSER
-
-head_close: CLOSE_OPENER HEAD_TAG CLOSER
-
-body_element: body_opener body_content body_closer
-
-body_opener: OPEN_OPENER BODY_TAG CLOSER
-
-body_content: 
-|common_tag_elenemt 
-|body_content common_tag_elenemt
-
-common_tag_elenemt: common_tag_elenemt common_tag_opener common_tag_elenemt common_tag_closer
-| common_tag_elenemt common_tag_opener common_tag_closer
-| common_tag_opener common_tag_closer
-
-common_tag_opener: OPEN_OPENER COMMON_TAG CLOSER |
-OPEN_OPENER COMMON_TAG attributes CLOSER
-
-common_tag_closer: CLOSE_OPENER COMMON_TAG CLOSER
-
-body_closer: CLOSE_OPENER BODY_TAG CLOSER
-
-html_closer: CLOSE_OPENER HTML_TAG CLOSER
-
-doctype_close: CLOSE_OPENER DOCTYPE_TAG CLOSER
+body_content: /*<body> section can be empty*/
+			| body_content OPEN_COMMON_TAG body_content CLOSE_COMMON_TAG
+			| body_content UNARY_TAG
 
 %%
