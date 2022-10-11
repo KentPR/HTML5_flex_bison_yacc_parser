@@ -3,6 +3,7 @@
 	#define _CRT_SECURE_NO_WARNINGS
 	#include "stackFuncs.cpp"
 	#include <stdio.h>
+	#include <iostream>
 	#include "parser.tab.h"
 	
 	extern FILE* yyin;
@@ -12,17 +13,23 @@
 	#endif
 %}
 
-%option stack yylineno caseless
+%option stack yylineno caseless c++
 %x TAG_VALIDATOR
 %x DOCTYPE_VERSION_VALIDATOR
+%x GLOBAL_ATTRIBUTE_EXPRESSION
 %x HTML_ATTRIBUTE_EXPRESSION
+%x HEAD_ATTRIBUTE_EXPRESSION
+%x BODY_ATTRIBUTE_EXPRESSION
+%x TITLE_ATTRIBUTE_EXPRESSION
+%x CLOSING_TAG
+%x COMMENT_EXPRESSION
 
 /*remove spaces and line breaks*/
 line_break [\r\n]*[\n]*
 space [\s]*[\t]*
 
 /*Comment handler*/
-comment_start			\<\!\-\-
+comment_start			\!\-\-
 comment_end				\-\-\>
 
 /*Doctype handler*/
@@ -60,18 +67,48 @@ cdata_definition		(\!\[cdata\[)
 
 <TAG_VALIDATOR>{
 	{doctype} {
-		//printf("%s", yytext);
+		printf("%s\n", yytext);
 		BEGIN(DOCTYPE_VERSION_VALIDATOR);
 	}
 
 	{html_tag} {
-		//printf("%s", yytext);
+		printf("%s\n", yytext);
 		BEGIN(HTML_ATTRIBUTE_EXPRESSION);
 	}
 
 	{head_tag} {
-		printf("%s", yytext);
-		
+		printf("%s\n", yytext);
+		BEGIN(HEAD_ATTRIBUTE_EXPRESSION);
+	}
+
+	{body_tag} {
+		printf("%s\n", yytext);
+		BEGIN(BODY_ATTRIBUTE_EXPRESSION);
+	}
+
+	{title_tag} {
+		printf("%s\n", yytext);
+		BEGIN(TITLE_ATTRIBUTE_EXPRESSION);
+	}
+
+	{name} {
+		printf("%s\n", yytext);
+		BEGIN(GLOBAL_ATTRIBUTE_EXPRESSION);
+	}
+
+	{custom_name} {
+		printf("%s\n", yytext);
+		printf("NOTE: Be careful using custom tags! in line%d\n", line);
+		BEGIN(GLOBAL_ATTRIBUTE_EXPRESSION);
+	}
+
+	[\/] {
+		//printf("%s\n", yytext);
+		BEGIN(CLOSING_TAG);
+	}
+
+	{comment_start} {
+		BEGIN(COMMENT_EXPRESSION);
 	}
 
 	. ;
@@ -105,6 +142,118 @@ cdata_definition		(\!\[cdata\[)
 		//printf("%s", yytext);
 		BEGIN(HTML_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
+	}
+
+	. ;
+}
+
+<HEAD_ATTRIBUTE_EXPRESSION>{
+	({space}|{line_break})*[\>] {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return OPEN_HEAD_TAG;
+	}
+	
+	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+		//printf("%s", yytext);
+		BEGIN(HEAD_ATTRIBUTE_EXPRESSION);
+		/*need to validate*/
+	}
+
+	. ;
+}
+
+<BODY_ATTRIBUTE_EXPRESSION>{
+	({space}|{line_break})*[\>] {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return OPEN_BODY_TAG;
+	}
+	
+	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+		//printf("%s", yytext);
+		BEGIN(BODY_ATTRIBUTE_EXPRESSION);
+		/*need to validate*/
+	}
+
+	. ;
+}
+
+<TITLE_ATTRIBUTE_EXPRESSION>{
+	({space}|{line_break})*[\>] {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return OPEN_TITLE_TAG;
+	}
+	
+	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+		//printf("%s", yytext);
+		BEGIN(TITLE_ATTRIBUTE_EXPRESSION);
+		/*need to validate*/
+	}
+
+	. ;
+}
+
+<GLOBAL_ATTRIBUTE_EXPRESSION>{
+	({space}|{line_break})*[\>] {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return OPEN_COMMON_TAG;
+	}
+	
+	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+		//printf("%s", yytext);
+		BEGIN(GLOBAL_ATTRIBUTE_EXPRESSION);
+		/*need to validate*/
+	}
+
+	. ;
+}
+
+<CLOSING_TAG>{
+	{html_tag}{space}*[\>] {
+		printf("%s\n", yytext);
+		BEGIN(0);
+		return CLOSE_HTML_TAG;
+	}
+
+	{head_tag}{space}*[\>] {
+		printf("%s\n", yytext);
+		BEGIN(0);
+		return CLOSE_HEAD_TAG;
+	}
+
+	{body_tag}{space}*[\>] {
+		printf("%s\n", yytext);
+		BEGIN(0);
+		return CLOSE_BODY_TAG;
+	}
+
+	{title_tag}{space}*[\>] {
+		printf("%s\n", yytext);
+		BEGIN(0);
+		return CLOSE_TITLE_TAG;
+	}
+
+	{name}{space}*[\>] {
+		printf("%s\n", yytext);
+		BEGIN(0);
+		return CLOSE_COMMON_TAG;
+	}
+
+	{custom_name}{space}*[\>] {
+		printf("%s\n", yytext);
+		BEGIN(0);
+		return CLOSE_COMMON_TAG;
+	}
+
+	. ;
+}
+
+<COMMENT_EXPRESSION>{
+	{comment_end} {
+		BEGIN(0);
 	}
 
 	. ;
