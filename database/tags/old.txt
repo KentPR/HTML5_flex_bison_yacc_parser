@@ -1,0 +1,15 @@
+acronym
+applet
+basefont
+big
+center
+command
+dir
+font
+frame
+frameset
+keygen
+menuitem
+noframes
+strike
+tt

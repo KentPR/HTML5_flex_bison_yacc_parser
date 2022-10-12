@@ -2,8 +2,8 @@
 %{
 	#define _CRT_SECURE_NO_WARNINGS
 	#include "stackFuncs.cpp"
+	#include "names_validator/tag_validator.c"
 	#include <stdio.h>
-	#include <iostream>
 	#include "parser.tab.h"
 	
 	extern FILE* yyin;
@@ -13,20 +13,21 @@
 	#endif
 %}
 
-%option stack yylineno caseless c++
+%option stack yylineno caseless
 %x TAG_VALIDATOR
 %x DOCTYPE_VERSION_VALIDATOR
-%x GLOBAL_ATTRIBUTE_EXPRESSION
 %x HTML_ATTRIBUTE_EXPRESSION
 %x HEAD_ATTRIBUTE_EXPRESSION
 %x BODY_ATTRIBUTE_EXPRESSION
 %x TITLE_ATTRIBUTE_EXPRESSION
+%x COMMON_ATTRIBUTE_EXPRESSION
+%x UNARY_ATTRIBUTE_EXPRESSION
 %x CLOSING_TAG
 %x COMMENT_EXPRESSION
 
 /*remove spaces and line breaks*/
-line_break [\r\n]*[\n]*
-space [\s]*[\t]*
+line_break [(\r\n)(\n)]
+space [( )|(\t)]
 
 /*Comment handler*/
 comment_start			\!\-\-
@@ -47,7 +48,8 @@ attribute_name			[a-z]+([\-][a-z])*
 attribute_value			([\"].*[\"])|([\'].*[\'])|[\d]+
 
 /*for tags and attributes*/
-name					[a-z]+
+/*can be h1 to h6 and can be without digits in it*/
+name					[a-z]+[1-6]*
 custom_name 			([a-z]+[\-])+[a-z\d]*
 
 /*non HTML5 constuctions*/
@@ -67,39 +69,77 @@ cdata_definition		(\!\[cdata\[)
 
 <TAG_VALIDATOR>{
 	{doctype} {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(DOCTYPE_VERSION_VALIDATOR);
 	}
 
 	{html_tag} {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(HTML_ATTRIBUTE_EXPRESSION);
 	}
 
 	{head_tag} {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(HEAD_ATTRIBUTE_EXPRESSION);
 	}
 
 	{body_tag} {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(BODY_ATTRIBUTE_EXPRESSION);
 	}
 
 	{title_tag} {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(TITLE_ATTRIBUTE_EXPRESSION);
 	}
 
 	{name} {
-		printf("%s\n", yytext);
-		BEGIN(GLOBAL_ATTRIBUTE_EXPRESSION);
+		//printf("%s\n", yytext);
+		//check if valid
+		int res = present_in_file("database/tags/all.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/tags/all.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==0)
+		{
+			printf("ERROR: Unrecognised tag <%s>! in line: %d\n", yytext, line);
+			exit(-1);
+		}
+		//check if obsolete
+		res = present_in_file("database/tags/old.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/tags/old.txt\"! file not found. %d\n",line);
+			exit(-1);
+		}
+		if(res==1)
+		{
+			printf("WARNING: Tag <%s> is obsolete! in line: %d\n", yytext, line);
+			BEGIN(COMMON_ATTRIBUTE_EXPRESSION);
+		}
+		//check if unary 
+		res = present_in_file("database/tags/unary.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/tags/unary.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==1)
+		{
+			BEGIN(UNARY_ATTRIBUTE_EXPRESSION);
+		}
+		else
+		{
+			BEGIN(COMMON_ATTRIBUTE_EXPRESSION);
+		}
 	}
 
 	{custom_name} {
 		printf("%s\n", yytext);
-		printf("NOTE: Be careful using custom tags! in line%d\n", line);
-		BEGIN(GLOBAL_ATTRIBUTE_EXPRESSION);
+		printf("NOTE: Be careful using custom tags! in line %d\n", line);
+		BEGIN(COMMON_ATTRIBUTE_EXPRESSION);
 	}
 
 	[\/] {
@@ -115,7 +155,7 @@ cdata_definition		(\!\[cdata\[)
 }
 
 <DOCTYPE_VERSION_VALIDATOR>{
-	({space}|{line_break})+{html_tag}[\>] {
+	({space}|{line_break})*{html_tag}[\>] {
 		//printf("%s", yytext);
 		BEGIN(0);
 		return DOCTYPE_FULL;
@@ -138,8 +178,8 @@ cdata_definition		(\!\[cdata\[)
 		return OPEN_HTML_TAG;
 	}
 	
-	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
-		//printf("%s", yytext);
+	({space}|{line_break})+{attribute_name}({space}|{line_break})*[=]({space}|{line_break})*{attribute_value} {
+		printf("%s\n", yytext);
 		BEGIN(HTML_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
@@ -195,8 +235,14 @@ cdata_definition		(\!\[cdata\[)
 	. ;
 }
 
-<GLOBAL_ATTRIBUTE_EXPRESSION>{
+<COMMON_ATTRIBUTE_EXPRESSION>{
 	({space}|{line_break})*[\>] {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return OPEN_COMMON_TAG;
+	}
+
+	({space}|{line_break})*\/\> {
 		//printf("%s", yytext);
 		BEGIN(0);
 		return OPEN_COMMON_TAG;
@@ -204,7 +250,29 @@ cdata_definition		(\!\[cdata\[)
 	
 	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
 		//printf("%s", yytext);
-		BEGIN(GLOBAL_ATTRIBUTE_EXPRESSION);
+		BEGIN(COMMON_ATTRIBUTE_EXPRESSION);
+		/*need to validate*/
+	}
+
+	. ;
+}
+
+<UNARY_ATTRIBUTE_EXPRESSION>{
+	({space}|{line_break})*[\>] {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return UNARY_TAG;
+	}
+
+	({space}|{line_break})*\/\> {
+		//printf("%s", yytext);
+		BEGIN(0);
+		return UNARY_TAG;
+	}
+	
+	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+		//printf("%s", yytext);
+		BEGIN(UNARY_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
 

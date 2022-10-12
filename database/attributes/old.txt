@@ -1,0 +1,12 @@
+align
+alink
+background
+bgcolor
+bgcolor
+border
+color
+link
+profile
+text
+version
+vlink
