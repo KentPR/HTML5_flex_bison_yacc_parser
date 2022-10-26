@@ -3,11 +3,14 @@
 	#define _CRT_SECURE_NO_WARNINGS
 	#include "stackFuncs.cpp"
 	#include "names_validator/tag_validator.c"
+	#include "stack/stack.c"
 	#include <stdio.h>
 	#include "parser.tab.h"
 	
 	extern FILE* yyin;
 	int line = 1;
+	NStack* BOT;
+	NStack* TOP;
 	#ifndef unix
 	#define fileno _fileno
 	#endif
@@ -45,7 +48,7 @@ title_tag 				title
 
 /*Attribute*/
 attribute_name			[a-z]+([\-][a-z])*
-attribute_value			([\"].*[\"])|([\'].*[\'])|[\d]+
+attribute_value			([\"](.*|\d+)[\"])|([\'](.*|\d+)[\'])
 
 /*for tags and attributes*/
 /*can be h1 to h6 and can be without digits in it*/
@@ -132,12 +135,22 @@ cdata_definition		(\!\[cdata\[)
 		}
 		else
 		{
+			if(stack_main(yytext, line)==-1)
+		{
+			printf("in line %d", line);
+			exit(-1);
+		}
 			BEGIN(COMMON_ATTRIBUTE_EXPRESSION);
 		}
 	}
 
 	{custom_name} {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
+		if(stack_main(yytext, line)==-1)
+		{
+			printf("in line %d", line);
+			exit(-1);
+		}
 		printf("NOTE: Be careful using custom tags! in line %d\n", line);
 		BEGIN(COMMON_ATTRIBUTE_EXPRESSION);
 	}
@@ -155,7 +168,7 @@ cdata_definition		(\!\[cdata\[)
 }
 
 <DOCTYPE_VERSION_VALIDATOR>{
-	({space}|{line_break})*{html_tag}[\>] {
+	({space}|{line_break})+{html_tag}[\>] {
 		//printf("%s", yytext);
 		BEGIN(0);
 		return DOCTYPE_FULL;
@@ -163,7 +176,7 @@ cdata_definition		(\!\[cdata\[)
 
 	({space}|{line_break})+{html_tag}({space}|{line_break})+{public} {
 		//printf("%s", yytext);
-		printf("WARNING: Obsolete DOCTYPE! Use <!DOCTYPE html> instead.");
+		printf("WARNING: Obsolete DOCTYPE! Use <!DOCTYPE html> instead.\n");
 		BEGIN(0);
 		return DOCTYPE_FULL;
 	}
@@ -179,7 +192,28 @@ cdata_definition		(\!\[cdata\[)
 	}
 	
 	({space}|{line_break})+{attribute_name}({space}|{line_break})*[=]({space}|{line_break})*{attribute_value} {
-		printf("%s\n", yytext);
+		int res = present_in_file("database/attributes/all.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/attributes/all.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==0)
+		{
+			printf("ERROR: Unrecognised attribute \"%s\"! in line: %d\n", yytext, line);
+			exit(-1);
+		}
+		res = present_in_file("database/attributes/old.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/attributes/old.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==1)
+		{
+			printf("WARNING: Attribute \"%s\" is obsolete! in line: %d\n", yytext, line);
+			exit(-1);
+		}
 		BEGIN(HTML_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
@@ -281,37 +315,46 @@ cdata_definition		(\!\[cdata\[)
 
 <CLOSING_TAG>{
 	{html_tag}{space}*[\>] {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(0);
 		return CLOSE_HTML_TAG;
 	}
 
 	{head_tag}{space}*[\>] {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(0);
 		return CLOSE_HEAD_TAG;
 	}
 
 	{body_tag}{space}*[\>] {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(0);
 		return CLOSE_BODY_TAG;
 	}
 
 	{title_tag}{space}*[\>] {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
 		BEGIN(0);
 		return CLOSE_TITLE_TAG;
 	}
 
 	{name}{space}*[\>] {
-		printf("%s\n", yytext);
+		//printf("%s\n", yytext);
+		if(stack_main(yytext, line)==-1)
+		{
+			printf("in line %d", line);
+			exit(-1);
+		}
 		BEGIN(0);
 		return CLOSE_COMMON_TAG;
 	}
 
 	{custom_name}{space}*[\>] {
-		printf("%s\n", yytext);
+		if(stack_main(yytext, line)==-1)
+		{
+			printf("in line %d", line);
+			exit(-1);
+		}
 		BEGIN(0);
 		return CLOSE_COMMON_TAG;
 	}
@@ -323,6 +366,10 @@ cdata_definition		(\!\[cdata\[)
 	{comment_end} {
 		BEGIN(0);
 	}
+
+	{line_break} {
+	line++;
+	} 
 
 	. ;
 }
@@ -358,14 +405,15 @@ int main(int argc, char*argv[])
 	}
 
     if ((err = fopen_s(&yyin, argv[1], "r")) != 0) {
-		printf("file not found.\n");
+		printf("Can't open file \"%s\". File not found.\n", argv[1]);
 		exit(-1);
 	} 
-	tagStackInit();
+	//tagStackInit();
     // The function that starts the analysis
 	yyparse();
-	tagStackDeinit();
+	//tagStackDeinit();
 	fclose(yyin);
+	print_stack();
 	printf("Parse status - ok.\n");
     return 0;
 }
