@@ -15,34 +15,35 @@
 
 %%
 
-/*hardcoding (doctype,html,head,title,body) 
-as they are once-used tag*/
+/* hardcoding (doctype,html,head,title,body) 
+as they are once-used tag */
 valid_HTML_doc: DOCTYPE_FULL OPEN_HTML_TAG html_content CLOSE_HTML_TAG
-			|error { yyerrok; printf("in line %d.\n", line); exit(-1);}
+			|error { 
+				yyerrok; 
+				exit(-1);
+			}
 
-/*HTML document can be without a <body>
-but can't be without a <head>
-*/
+/* HTML document can be without a <body>
+but can't be without a <head> */
 html_content: OPEN_HEAD_TAG head_content CLOSE_HEAD_TAG
 			| OPEN_HEAD_TAG head_content CLOSE_HEAD_TAG OPEN_BODY_TAG body_content CLOSE_BODY_TAG
 
-/*exactly one <title> is required in HTML document!*/
+/* exactly one <title> is required in HTML document! */
 head_content: other_head_content OPEN_TITLE_TAG CLOSE_TITLE_TAG other_head_content
 
-
-/*other tags  allowed in <head> such as:
+/* other tags  allowed in <head> such as:
 <style>
 <base>
 <link>
 <meta>
 <script>
-<noscript>
-*/
-other_head_content: /*nothing or <unary>+*/
+<noscript> */
+other_head_content: /* nothing or <avaliable_tag_name>+ */
 				| other_head_content UNARY_TAG
+				| other_head_content OPEN_COMMON_TAG CLOSE_COMMON_TAG
 
 
-body_content: /*<body> section can be empty*/
+body_content: /* <body> section can be empty */
 			| body_content OPEN_COMMON_TAG body_content CLOSE_COMMON_TAG
 			| body_content UNARY_TAG
 

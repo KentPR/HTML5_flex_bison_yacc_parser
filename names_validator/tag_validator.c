@@ -86,3 +86,16 @@ char* first_word(char* str)
 	}
 	return new_str;
 }
+
+int LB_count(char* str)
+{
+	int sp = 0;
+	for (int i = 0; i < strlen(str); i++)
+	{
+		if (str[i] == '\n')
+		{
+			sp++;
+		}
+	}
+	return sp;
+}

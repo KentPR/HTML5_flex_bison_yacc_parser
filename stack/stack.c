@@ -54,13 +54,21 @@ int stack_main(const char* tag_name, int seen)
             ch[i] = tag_name[i];
         }
         ch[strlen(tag_name)-1] = '\0';
+
+        if (TOP == NULL)
+        {
+            printf("ERROR: Stray tag </%s>! | ", ch, tmp->name);
+            return -1;
+        }
+
         if (!strcmp(tmp->name, ch))
         {
+
             pop();
         }
         else
         {
-            printf("ERROR: Unecpected </%s>! Expexted </%s> | ", ch, tmp->name);
+            printf("ERROR: Unexpected </%s>! Unclosed </%s> | ", ch, tmp->name);
             return -1;
         }
     }

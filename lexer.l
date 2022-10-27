@@ -29,7 +29,7 @@
 %x COMMENT_EXPRESSION
 
 /*remove spaces and line breaks*/
-line_break [(\r\n)(\n)]
+line_break (\n)
 space [( )|(\t)]
 
 /*Comment handler*/
@@ -48,7 +48,7 @@ title_tag 				title
 
 /*Attribute*/
 attribute_name			[a-z]+([\-][a-z])*
-attribute_value			([\"](.*|\d+)[\"])|([\'](.*|\d+)[\'])
+attribute_value			([\"][^\<\>]+?[\"])|([\']([^\<\>]?+)[\'])
 
 /*for tags and attributes*/
 /*can be h1 to h6 and can be without digits in it*/
@@ -164,18 +164,23 @@ cdata_definition		(\!\[cdata\[)
 		BEGIN(COMMENT_EXPRESSION);
 	}
 
-	. ;
+	. { 
+		printf("ERROR: Unexpected \'%s\' after <! %d", yytext, line);
+		exit(-1);
+	}
 }
 
 <DOCTYPE_VERSION_VALIDATOR>{
 	({space}|{line_break})+{html_tag}[\>] {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return DOCTYPE_FULL;
 	}
 
 	({space}|{line_break})+{html_tag}({space}|{line_break})+{public} {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		printf("WARNING: Obsolete DOCTYPE! Use <!DOCTYPE html> instead.\n");
 		BEGIN(0);
 		return DOCTYPE_FULL;
@@ -187,6 +192,7 @@ cdata_definition		(\!\[cdata\[)
 <HTML_ATTRIBUTE_EXPRESSION>{
 	({space}|{line_break})*[\>] {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return OPEN_HTML_TAG;
 	}
@@ -212,8 +218,8 @@ cdata_definition		(\!\[cdata\[)
 		if(res==1)
 		{
 			printf("WARNING: Attribute \"%s\" is obsolete! in line: %d\n", yytext, line);
-			exit(-1);
 		}
+		line+=LB_count(yytext);
 		BEGIN(HTML_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
@@ -224,12 +230,36 @@ cdata_definition		(\!\[cdata\[)
 <HEAD_ATTRIBUTE_EXPRESSION>{
 	({space}|{line_break})*[\>] {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return OPEN_HEAD_TAG;
 	}
 	
-	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+	({space}|{line_break})+{attribute_name}({space}|{line_break})*[=]({space}|{line_break})*{attribute_value} {
 		//printf("%s", yytext);
+		int res = present_in_file("database/attributes/all.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/attributes/all.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==0)
+		{
+			printf("ERROR: Unrecognised attribute \"%s\"! in line: %d\n", yytext, line);
+			exit(-1);
+		}
+		res = present_in_file("database/attributes/old.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/attributes/old.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==1)
+		{
+			printf("WARNING: Attribute \"%s\" is obsolete! in line: %d\n", yytext, line);
+			exit(-1);
+		}
+		line+=LB_count(yytext);
 		BEGIN(HEAD_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
@@ -240,12 +270,36 @@ cdata_definition		(\!\[cdata\[)
 <BODY_ATTRIBUTE_EXPRESSION>{
 	({space}|{line_break})*[\>] {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return OPEN_BODY_TAG;
 	}
 	
-	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+	({space}|{line_break})+{attribute_name}({space}|{line_break})*[=]({space}|{line_break})*{attribute_value} {
 		//printf("%s", yytext);
+		int res = present_in_file("database/attributes/all.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/attributes/all.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==0)
+		{
+			printf("ERROR: Unrecognised attribute \"%s\"! in line: %d\n", yytext, line);
+			exit(-1);
+		}
+		res = present_in_file("database/attributes/old.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/attributes/old.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==1)
+		{
+			printf("WARNING: Attribute \"%s\" is obsolete! in line: %d\n", yytext, line);
+			exit(-1);
+		}
+		line+=LB_count(yytext);
 		BEGIN(BODY_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
@@ -256,12 +310,36 @@ cdata_definition		(\!\[cdata\[)
 <TITLE_ATTRIBUTE_EXPRESSION>{
 	({space}|{line_break})*[\>] {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return OPEN_TITLE_TAG;
 	}
 	
-	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
+	({space}|{line_break})+{attribute_name}({space}|{line_break})*[=]({space}|{line_break})*{attribute_value} {
 		//printf("%s", yytext);
+		int res = present_in_file("database/attributes/all.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/attributes/all.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==0)
+		{
+			printf("ERROR: Unrecognised attribute \"%s\"! in line: %d\n", yytext, line);
+			exit(-1);
+		}
+		res = present_in_file("database/attributes/old.txt", yytext);
+		if(res==-1)
+		{
+			printf("ERROR: Can't open file \"database/attributes/old.txt\"! file not found.\n");
+			exit(-1);
+		}
+		if(res==1)
+		{
+			printf("WARNING: Attribute \"%s\" is obsolete! in line: %d\n", yytext, line);
+			exit(-1);
+		}
+		line+=LB_count(yytext);
 		BEGIN(TITLE_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
@@ -272,18 +350,22 @@ cdata_definition		(\!\[cdata\[)
 <COMMON_ATTRIBUTE_EXPRESSION>{
 	({space}|{line_break})*[\>] {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return OPEN_COMMON_TAG;
 	}
 
 	({space}|{line_break})*\/\> {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return OPEN_COMMON_TAG;
 	}
 	
-	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
-		//printf("%s", yytext);
+	({space}|{line_break})+{attribute_name}({space}|{line_break})*[=]({space}|{line_break})*{attribute_value} {
+		//printf("%s %d\n", yytext, line);
+		
+		line+=LB_count(yytext);
 		BEGIN(COMMON_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
@@ -294,18 +376,22 @@ cdata_definition		(\!\[cdata\[)
 <UNARY_ATTRIBUTE_EXPRESSION>{
 	({space}|{line_break})*[\>] {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return UNARY_TAG;
 	}
 
 	({space}|{line_break})*\/\> {
 		//printf("%s", yytext);
+		line+=LB_count(yytext);
 		BEGIN(0);
 		return UNARY_TAG;
 	}
 	
-	({space}|{line_break})+{attribute_name}({space}|{line_break})+[=]({space}|{line_break})+{attribute_value} {
-		//printf("%s", yytext);
+	({space}|{line_break})+{attribute_name}({space}|{line_break})*[=]({space}|{line_break})*{attribute_value} {
+		//printf("%s %d\n", yytext, line);
+		
+		line+=LB_count(yytext);
 		BEGIN(UNARY_ATTRIBUTE_EXPRESSION);
 		/*need to validate*/
 	}
@@ -414,6 +500,6 @@ int main(int argc, char*argv[])
 	//tagStackDeinit();
 	fclose(yyin);
 	print_stack();
-	printf("Parse status - ok.\n");
+	printf("Parse status - ok. || total lines: %d\n", line);
     return 0;
 }
