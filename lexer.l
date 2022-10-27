@@ -47,7 +47,7 @@ body_tag 				body
 title_tag 				title
 
 /*Attribute*/
-attribute_name			[a-z]+([\-][a-z])*
+attribute_name			[a-z]+([\-][a-z]*)*
 attribute_value			([\"][^\<\>]+?[\"])|([\']([^\<\>]?+)[\'])
 
 /*for tags and attributes*/
@@ -97,7 +97,7 @@ cdata_definition		(\!\[cdata\[)
 	}
 
 	{name} {
-		//printf("%s\n", yytext);
+		printf("%s %d\n", yytext, line);
 		//check if valid
 		int res = present_in_file("database/tags/all.txt", yytext);
 		if(res==-1)
@@ -363,7 +363,7 @@ cdata_definition		(\!\[cdata\[)
 	}
 	
 	({space}|{line_break})+{attribute_name}({space}|{line_break})*[=]({space}|{line_break})*{attribute_value} {
-		//printf("%s %d\n", yytext, line);
+		printf("\t%s %d\n", yytext, line);
 		
 		line+=LB_count(yytext);
 		BEGIN(COMMON_ATTRIBUTE_EXPRESSION);
@@ -425,7 +425,7 @@ cdata_definition		(\!\[cdata\[)
 	}
 
 	{name}{space}*[\>] {
-		//printf("%s\n", yytext);
+		printf("%s %d\n", yytext, line);
 		if(stack_main(yytext, line)==-1)
 		{
 			printf("in line %d", line);

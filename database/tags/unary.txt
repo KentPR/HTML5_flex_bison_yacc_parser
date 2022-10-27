@@ -1,3 +1,5 @@
+path
+circle
 basefont
 frame
 area
@@ -17,3 +19,4 @@ wbr
 command
 keygen
 menuitem
+

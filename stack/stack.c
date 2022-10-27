@@ -69,6 +69,7 @@ int stack_main(const char* tag_name, int seen)
         else
         {
             printf("ERROR: Unexpected </%s>! Unclosed </%s> | ", ch, tmp->name);
+            print_stack();
             return -1;
         }
     }
